@@ -1,0 +1,44 @@
+# ═══════════════════════════════════════════════════════════════
+# requirements_windows.txt — RTX 4060 CUDA (remote desktop)
+# ═══════════════════════════════════════════════════════════════
+#
+# Step 1 — Install CUDA PyTorch first (do NOT use this file for torch):
+#
+#   pip install torch==2.2.1+cu121 --extra-index-url https://download.pytorch.org/whl/cu121
+#
+# Step 2 — Then install everything else:
+#
+#   pip install -r requirements_windows.txt
+#
+# Step 3 — Install Mamba (CUDA required, Linux binary):
+#   On Windows WSL2 or native Linux:
+#     pip install mamba-ssm causal-conv1d
+#   On native Windows (no binary available — use SimpleMambaBlock CPU fallback):
+#     [mamba-ssm will be skipped; the code falls back automatically]
+# ═══════════════════════════════════════════════════════════════
+
+# Data
+pandas>=2.2.0
+numpy>=1.26.0
+pyarrow>=15.0.0
+
+# Machine learning
+lightgbm>=4.3.0
+scikit-learn>=1.4.0
+
+# Deep learning (torch installed separately above with CUDA)
+einops>=0.7.0
+
+# KAN
+pykan>=0.2.0
+
+# Config / utils
+pyyaml>=6.0.1
+tqdm>=4.66.0
+rich>=13.7.0
+
+# Notebooks
+jupyterlab>=4.1.0
+ipywidgets>=8.1.0
+matplotlib>=3.8.0
+seaborn>=0.13.0

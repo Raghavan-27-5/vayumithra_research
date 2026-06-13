@@ -1,0 +1,179 @@
+# Feature Manifest — Vayumithra Wind Forecasting
+# Auto-generated from src/pipeline/feature_pipeline.py
+# Source of truth: wind_forecast.ipynb + 2013_2022.ipynb
+# Last updated: 2026-06-13
+#
+# Every feature listed here corresponds to a specific notebook cell.
+# Adding a feature here REQUIRES: (1) code addition in feature_pipeline.py,
+# (2) a corresponding ablation experiment, (3) LGBM re-evaluation.
+
+features:
+
+  # ── Group A: Lag Features (Cell 10) ─────────────────────────────────────────
+  - name: wind_speed_lag_1
+    group: wind_lag
+    causal: true
+    horizon_min: 1
+    description: "Wind speed at t-1h. Excluded from targets h≥24 to avoid proxy leakage."
+
+  - name: wind_speed_lag_2
+    group: wind_lag
+    causal: true
+    horizon_min: 2
+    description: "Wind speed at t-2h."
+
+  - name: wind_speed_lag_3
+    group: wind_lag
+    causal: true
+    horizon_min: 3
+    description: "Wind speed at t-3h."
+
+  - name: wind_speed_lag_6
+    group: wind_lag
+    causal: true
+    horizon_min: 1
+    description: "Wind speed at t-6h."
+
+  - name: wind_speed_lag_12
+    group: wind_lag
+    causal: true
+    horizon_min: 1
+
+  - name: wind_speed_lag_24
+    group: wind_lag
+    causal: true
+    horizon_min: 1
+
+  - name: wind_speed_lag_48
+    group: wind_lag
+    causal: true
+    horizon_min: 1
+
+  - name: wind_speed_lag_72
+    group: wind_lag
+    causal: true
+    horizon_min: 1
+
+  - name: wind_speed_lag_168
+    group: wind_lag
+    causal: true
+    horizon_min: 1
+    description: "Weekly lag — captures same-weekday same-hour wind pattern."
+
+  # ── Group B: Rolling Statistics (Cell 10) ────────────────────────────────────
+  - {name: wind_speed_roll_mean_6,  group: rolling, causal: true}
+  - {name: wind_speed_roll_std_6,   group: rolling, causal: true}
+  - {name: wind_speed_roll_mean_12, group: rolling, causal: true}
+  - {name: wind_speed_roll_std_12,  group: rolling, causal: true}
+  - {name: wind_speed_roll_mean_24, group: rolling, causal: true}
+  - {name: wind_speed_roll_std_24,  group: rolling, causal: true}
+  - {name: wind_speed_roll_mean_48, group: rolling, causal: true}
+  - {name: wind_speed_roll_std_48,  group: rolling, causal: true}
+
+  # ── Group C: Wind Vectors (Cell 9) ───────────────────────────────────────────
+  - {name: dir_sin,  group: wind_vector, causal: true}
+  - {name: dir_cos,  group: wind_vector, causal: true}
+  - {name: wind_x,   group: wind_vector, causal: true}
+  - {name: wind_y,   group: wind_vector, causal: true}
+
+  # ── Group D: Advanced Wind Dynamics (Cell 22) ─────────────────────────────────
+  - {name: wind_accel_1,         group: dynamics, causal: true}
+  - {name: wind_accel_3,         group: dynamics, causal: true}
+  - {name: wind_accel_6,         group: dynamics, causal: true}
+  - {name: dir_change_sin,       group: dynamics, causal: true}
+  - {name: dir_change_cos,       group: dynamics, causal: true}
+  - {name: wind_ewm_6,           group: dynamics, causal: true}
+  - {name: wind_ewm_12,          group: dynamics, causal: true}
+  - {name: wind_ewm_24,          group: dynamics, causal: true}
+  - {name: wind_volatility_6,    group: dynamics, causal: true}
+  - {name: wind_volatility_24,   group: dynamics, causal: true}
+  - {name: wind_volatility_72,   group: dynamics, causal: true}
+
+  # ── Group E: Cyclical Time (Cell 9) ──────────────────────────────────────────
+  - {name: hour_sin,  group: time, causal: true}
+  - {name: hour_cos,  group: time, causal: true}
+  - {name: dow_sin,   group: time, causal: true}
+  - {name: dow_cos,   group: time, causal: true}
+  - {name: month_sin, group: time, causal: true}
+  - {name: month_cos, group: time, causal: true}
+  - {name: hour_x_month_sin,  group: time_interaction, causal: true}
+  - {name: hour_x_month_cos,  group: time_interaction, causal: true}
+  - {name: hour_x_month_sin2, group: time_interaction, causal: true}
+  - {name: hour_x_month_cos2, group: time_interaction, causal: true}
+  - {name: is_sw_monsoon, group: time_regime, causal: true}
+  - {name: is_ne_monsoon, group: time_regime, causal: true}
+  - {name: is_dry_season, group: time_regime, causal: true}
+
+  # ── Group F: Atmospheric Physics (Cell A) ────────────────────────────────────
+  - {name: pressure_tendency_1h,  group: atmos, causal: true}
+  - {name: pressure_tendency_3h,  group: atmos, causal: true}
+  - {name: pressure_tendency_6h,  group: atmos, causal: true}
+  - {name: pressure_tendency_12h, group: atmos, causal: true}
+  - {name: pressure_tendency_24h, group: atmos, causal: true}
+  - {name: temp_tendency_1h,      group: atmos, causal: true}
+  - {name: temp_tendency_3h,      group: atmos, causal: true}
+  - {name: temp_tendency_6h,      group: atmos, causal: true}
+  - {name: temp_tendency_12h,     group: atmos, causal: true}
+  - {name: temp_tendency_24h,     group: atmos, causal: true}
+  - {name: humidity_tendency_1h,  group: atmos, causal: true}
+  - {name: humidity_tendency_6h,  group: atmos, causal: true}
+  - {name: humidity_tendency_24h, group: atmos, causal: true}
+  - {name: surface_pressure_lag_1,  group: atmos_lag, causal: true}
+  - {name: surface_pressure_lag_6,  group: atmos_lag, causal: true}
+  - {name: surface_pressure_lag_12, group: atmos_lag, causal: true}
+  - {name: surface_pressure_lag_24, group: atmos_lag, causal: true}
+  - {name: surface_pressure_lag_48, group: atmos_lag, causal: true}
+  - {name: temperature_lag_1,  group: atmos_lag, causal: true}
+  - {name: temperature_lag_6,  group: atmos_lag, causal: true}
+  - {name: temperature_lag_12, group: atmos_lag, causal: true}
+  - {name: temperature_lag_24, group: atmos_lag, causal: true}
+  - {name: temperature_lag_48, group: atmos_lag, causal: true}
+  - {name: humidity_lag_1,  group: atmos_lag, causal: true}
+  - {name: humidity_lag_6,  group: atmos_lag, causal: true}
+  - {name: humidity_lag_24, group: atmos_lag, causal: true}
+  - {name: surface_pressure_roll_mean_6,  group: atmos_rolling, causal: true}
+  - {name: surface_pressure_roll_std_6,   group: atmos_rolling, causal: true}
+  - {name: surface_pressure_roll_mean_24, group: atmos_rolling, causal: true}
+  - {name: surface_pressure_roll_std_24,  group: atmos_rolling, causal: true}
+  - {name: temperature_roll_mean_6,  group: atmos_rolling, causal: true}
+  - {name: temperature_roll_std_6,   group: atmos_rolling, causal: true}
+  - {name: temperature_roll_mean_24, group: atmos_rolling, causal: true}
+  - {name: temperature_roll_std_24,  group: atmos_rolling, causal: true}
+  - {name: ws_x_pressure_tend_6h, group: atmos_interaction, causal: true}
+  - {name: ws_x_temp_tend_6h,     group: atmos_interaction, causal: true}
+  - {name: pressure_x_humidity,   group: atmos_interaction, causal: true}
+
+  # ── Group G: Spatial/Regional (Cell 24) ──────────────────────────────────────
+  - {name: regional_ws_mean,       group: spatial, causal: true}
+  - {name: regional_ws_std,        group: spatial, causal: true}
+  - {name: regional_pressure_mean, group: spatial, causal: true}
+  - {name: regional_pressure_std,  group: spatial, causal: true}
+  - {name: regional_humidity_mean, group: spatial, causal: true}
+  - {name: regional_humidity_std,  group: spatial, causal: true}
+  - {name: ws_vs_region,           group: spatial, causal: true}
+  - {name: pressure_vs_region,     group: spatial, causal: true}
+  - {name: humidity_vs_region,     group: spatial, causal: true}
+  - {name: ws_anomaly,             group: spatial, causal: true}
+  - {name: pressure_anomaly,       group: spatial, causal: true}
+
+  # ── Group H: Neighbor Propagation (Cell 29) ───────────────────────────────────
+  - {name: neighbor_1_lag1, group: neighbor, causal: true}
+  - {name: neighbor_1_lag6, group: neighbor, causal: true}
+  - {name: neighbor_2_lag1, group: neighbor, causal: true}
+  - {name: neighbor_2_lag6, group: neighbor, causal: true}
+
+  # ── Group I: Meta (station identity) ─────────────────────────────────────────
+  - {name: Longitude, group: meta, causal: true}
+  - {name: Latitude,  group: meta, causal: true}
+  - {name: Index,     group: meta, causal: true, description: "Station ID — used as categorical feature in LGBM."}
+
+targets:
+  - target_t_plus_1
+  - target_t_plus_2
+  - target_t_plus_3
+  - target_t_plus_4
+  - target_t_plus_5
+  - target_t_plus_6
+  - target_t_plus_12
+  - target_t_plus_24
+  - target_t_plus_48

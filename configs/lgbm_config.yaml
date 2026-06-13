@@ -1,0 +1,47 @@
+# LGBM Walk-Forward Config
+model: lgbm
+
+data:
+  parquet_path: data/processed/wind_data.parquet
+  max_train_rows: 600000  # memory cap, subsample if exceeded
+  random_state: 42
+
+folds:
+  - [2013-01-01, 2019-01-01, 2020-01-01]
+  - [2013-01-01, 2020-01-01, 2021-01-01]
+  - [2013-01-01, 2021-01-01, 2022-01-01]
+
+horizons: [1, 2, 3, 4, 5, 6, 12, 24, 48]
+
+params_short:  # horizons 1–12h
+  objective: regression
+  n_estimators: 500
+  learning_rate: 0.05
+  num_leaves: 63
+  max_depth: 7
+  subsample: 0.7
+  subsample_freq: 1
+  colsample_bytree: 0.7
+  reg_alpha: 0.1
+  reg_lambda: 1.0
+  min_child_samples: 50
+  n_jobs: -1
+
+params_long:  # horizons 24h, 48h
+  objective: regression
+  n_estimators: 300
+  learning_rate: 0.05
+  num_leaves: 63
+  max_depth: 7
+  subsample: 0.6
+  subsample_freq: 1
+  colsample_bytree: 0.6
+  colsample_bynode: 0.6
+  reg_alpha: 0.1
+  reg_lambda: 1.0
+  min_child_samples: 100
+  n_jobs: -1
+
+output:
+  metrics_path: results/metrics/lgbm_results.csv
+  model_dir:    results/models/lgbm/

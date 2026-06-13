@@ -1,0 +1,40 @@
+# DLinear Walk-Forward Config (Zeng et al. 2022)
+model: dlinear
+
+data:
+  parquet_path: data/processed/wind_data.parquet
+  features:
+    - wind_speed        # primary target variate
+    - wind_direction
+    - temperature
+    - humidity
+    - surface_pressure
+  target_col: wind_speed
+
+folds:
+  - [2013-01-01, 2019-01-01, 2020-01-01]
+  - [2013-01-01, 2020-01-01, 2021-01-01]
+  - [2013-01-01, 2021-01-01, 2022-01-01]
+
+horizons: [1, 6, 12, 24, 48]
+
+model_params:
+  seq_len: 336        # 14 days of hourly look-back (paper default)
+  kernel_size: 25     # moving average kernel (paper default)
+  individual: true    # channel-independent weights (CI mode)
+  enc_in: 5           # number of input variates (match features list above)
+
+training:
+  epochs: 100
+  batch_size: 512
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-4
+  patience: 10        # early stopping patience (epochs)
+  loss: mse
+  optimizer: adamw
+  lr_scheduler: cosine
+  device: cuda        # change to cpu for smoke tests
+
+output:
+  metrics_path: results/metrics/dlinear_results.csv
+  model_dir:    results/models/dlinear/

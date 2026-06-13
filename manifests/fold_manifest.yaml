@@ -1,0 +1,65 @@
+# Fold Manifest — Vayumithra Wind Forecasting
+# Canonical walk-forward expanding-window folds used by ALL models.
+# Do NOT change these unless explicitly re-designing the evaluation protocol.
+# Source: wind_forecast.ipynb Cell 21 (4-year walk-forward)
+# Condensed to 3 folds per audit (latest 3 years of validation).
+
+dataset:
+  temporal_range: "2013-01-01 05:00:00 → 2022-09-28 04:00:00"
+  stations: 31
+  total_rows: 2646408
+  frequency: hourly
+  target_variable: wind_speed
+  target_unit: m/s
+
+folds:
+  - fold: 1
+    train_start: "2013-01-01"
+    train_end:   "2019-01-01"
+    val_start:   "2019-01-01"
+    val_end:     "2020-01-01"
+    train_years: 6
+    val_year: 2019
+    notes: "Earliest fold — model sees 6 years of data."
+
+  - fold: 2
+    train_start: "2013-01-01"
+    train_end:   "2020-01-01"
+    val_start:   "2020-01-01"
+    val_end:     "2021-01-01"
+    train_years: 7
+    val_year: 2020
+    notes: "COVID-19 period. Check for distribution anomalies."
+
+  - fold: 3
+    train_start: "2013-01-01"
+    train_end:   "2021-01-01"
+    val_start:   "2021-01-01"
+    val_end:     "2022-01-01"
+    train_years: 8
+    val_year: 2021
+    notes: "Largest training set. Primary benchmark fold."
+
+horizons: [1, 2, 3, 4, 5, 6, 12, 24, 48]
+
+splitting_rules:
+  - No random splits allowed
+  - Train must strictly precede validation (no overlap)
+  - Same fold boundaries used for ALL models (LGBM, DLinear, Mamba, KAN, hybrids)
+  - Stacking meta-learner trains only on out-of-fold predictions
+  - No test data used for hyperparameter tuning
+  - Scalers (for DL models) fitted on train split only, applied to val
+
+persistence_baselines:
+  # MAE of naive persistence at t-1h for t+Nh forecast
+  # Source: wind_forecast.ipynb Cell 17 (station 0, 2021 val year)
+  - horizon: 1
+    persistence_mae: 0.539816
+  - horizon: 6
+    persistence_mae: ~1.353
+  - horizon: 12
+    persistence_mae: ~1.680
+  - horizon: 24
+    persistence_mae: ~1.950
+  - horizon: 48
+    persistence_mae: ~2.100

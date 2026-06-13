@@ -1,0 +1,50 @@
+# ── Raw data (too large + private) ───────────────────────────────────────────
+data/raw/
+*.csv
+*.zip
+
+# ── Parquet IS committed (25 MB, within GitHub limits) ───────────────────────
+# data/processed/   <-- DO NOT gitignore this
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.eggs/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+
+# ── Environments ─────────────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+.env
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── OS / IDE ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── PyTorch checkpoints from DL training (large — sync separately) ───────────
+results/models/dlinear/
+results/models/mamba/
+results/models/kan/
+*.pt
+*.pth
+*.ckpt
+
+# ── LGBM .txt boosters ARE committed (under results/models/lgbm/) ────────────
+# No exclusion — they are already in version control
+
+# ── Logs / scratch ────────────────────────────────────────────────────────────
+*.log
+tmp/
