@@ -1,5 +1,8 @@
 # DLinear Walk-Forward Config (Zeng et al. 2022)
 model: dlinear
+# "engineered" = 50+ features (recommended, should beat LGBM at short horizons)
+# "raw"        = 11 raw variates (paper default, ablation baseline)
+feature_mode: engineered
 
 data:
   parquet_path: data/processed/wind_data.parquet

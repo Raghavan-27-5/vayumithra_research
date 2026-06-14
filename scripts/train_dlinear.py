@@ -2,45 +2,54 @@
 """
 scripts/train_dlinear.py
 ────────────────────────
-DLinear walk-forward training script. Run on the remote desktop (RTX 4060).
+DLinear walk-forward training. Run on remote desktop (RTX 4060).
 
 Usage:
-    python scripts/train_dlinear.py --config configs/dlinear_config.yaml
-    python scripts/train_dlinear.py --config configs/dlinear_config.yaml --device cpu  # smoke test
-    python scripts/train_dlinear.py --fold 1   # run a single fold
+    # Full run (all folds, all horizons, engineered features):
+    python scripts/train_dlinear.py
 
-Outputs (all in results/):
-    results/metrics/dlinear_results.csv       — full fold × horizon metrics
-    results/models/dlinear/                   — .pt checkpoints + history.json files
+    # Raw sequences only (paper default):
+    python scripts/train_dlinear.py --feature_mode raw
+
+    # Single fold smoke test on CPU:
+    python scripts/train_dlinear.py --fold 3 --device cpu --epochs 5
+
+Outputs (crash-safe — CSV saved after every horizon):
+    results/metrics/dlinear_results.csv
+    results/models/dlinear/*.pt         — best checkpoint per (fold, horizon)
+    results/models/dlinear/*_history.json
 """
 import argparse
+import logging
 import sys
 import time
-import logging
 from pathlib import Path
 
 import pandas as pd
-import yaml
 import torch
+import yaml
 from torch.utils.data import DataLoader
 
-# ── Make sure repo root is on path ───────────────────────────────────────────
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.data.loader import load_raw
-from src.pipeline.feature_pipeline import build_full_feature_matrix, WALK_FORWARD_FOLDS
-from src.pipeline.ts_dataset import build_fold_datasets, SEQUENCE_VARIATES, N_VARIATES
 from src.models.dlinear import DLinear
-from src.pipeline.trainer import train_model_for_fold
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s  %(message)s",
-    datefmt="%H:%M:%S",
+from src.pipeline.feature_pipeline import (
+    WALK_FORWARD_FOLDS,
+    build_full_feature_matrix,
 )
-log = logging.getLogger(__name__)
+from src.pipeline.trainer import train_model_for_fold
+from src.pipeline.ts_dataset import (
+    N_VARIATES,
+    SEQUENCE_VARIATES,
+    build_fold_datasets,
+    get_feature_variates,
+)
 
-DEFAULT_CONFIG = Path("configs/dlinear_config.yaml")
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s  %(levelname)-8s  %(message)s",
+                    datefmt="%H:%M:%S")
+log = logging.getLogger(__name__)
 
 
 def load_config(path: Path) -> dict:
@@ -49,31 +58,38 @@ def load_config(path: Path) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train DLinear — wind forecasting")
-    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    parser.add_argument("--device", type=str, default=None,
-                        help="Override device (cuda/cpu)")
-    parser.add_argument("--fold", type=int, default=None,
-                        help="Run only this fold (1/2/3); default=all")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config",       type=Path, default=Path("configs/dlinear_config.yaml"))
+    parser.add_argument("--device",       type=str,  default=None)
+    parser.add_argument("--fold",         type=int,  default=None, help="Run only fold 1/2/3")
+    parser.add_argument("--feature_mode", type=str,  default=None,
+                        choices=["raw", "engineered"],
+                        help="Override config feature_mode: raw=11 variates, engineered=50+ features")
+    parser.add_argument("--epochs",       type=int,  default=None, help="Override training epochs")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
     mp  = cfg["model_params"]
     tp  = cfg["training"]
 
-    # ── Device ────────────────────────────────────────────────────────────────
+    # CLI overrides
+    if args.epochs:
+        tp["epochs"] = args.epochs
+    feature_mode = args.feature_mode or cfg.get("feature_mode", "engineered")
+
     device_str = args.device or tp.get("device", "cuda")
     device = torch.device(device_str if torch.cuda.is_available() else "cpu")
-    log.info(f"Device: {device}")
+    log.info(f"Device       : {device}")
+    log.info(f"Feature mode : {feature_mode}")
 
-    # ── Load and engineer data ────────────────────────────────────────────────
+    # ── Load data ─────────────────────────────────────────────────────────────
     log.info("Loading parquet ...")
     df = load_raw(Path(cfg["data"]["parquet_path"]))
 
-    log.info("Building feature matrix ...")
+    log.info("Engineering features ...")
     t0 = time.time()
     df = build_full_feature_matrix(df, verbose=True)
-    log.info(f"Feature matrix ready: {df.shape}  [{time.time()-t0:.0f}s]")
+    log.info(f"Feature matrix: {df.shape}  [{time.time()-t0:.0f}s]")
 
     horizons     = cfg["horizons"]
     seq_len      = mp["seq_len"]
@@ -85,73 +101,70 @@ def main():
     if args.fold is not None:
         folds = [f for f in folds if f["fold"] == args.fold]
         if not folds:
-            raise ValueError(f"--fold {args.fold} not in [1,2,3]")
+            raise ValueError(f"--fold {args.fold} not found (must be 1, 2, or 3)")
 
     all_metrics: list[dict] = []
 
     for fold in folds:
         log.info(f"\n{'='*60}")
-        log.info(f"FOLD {fold['fold']}  train < {fold['train_end']}  |  val {fold['val_start']}–{fold['val_end']}")
+        log.info(f"FOLD {fold['fold']}  |  train < {fold['train_end']}  "
+                 f"val {fold['val_start']} – {fold['val_end']}")
 
-        # ── Build datasets ────────────────────────────────────────────────────
-        log.info("Building sliding-window datasets ...")
-        train_ds, val_ds = build_fold_datasets(
-            df, fold, seq_len=seq_len, horizons=horizons,
-            variates=SEQUENCE_VARIATES,
-        )
-        log.info(f"  train={len(train_ds):,}  val={len(val_ds):,} windows")
-
-        train_loader = DataLoader(
-            train_ds, batch_size=tp["batch_size"], shuffle=True,
-            num_workers=4, pin_memory=True,
-        )
-        val_loader = DataLoader(
-            val_ds, batch_size=tp["batch_size"] * 2, shuffle=False,
-            num_workers=4, pin_memory=True,
-        )
-
-        # ── One model per horizon ─────────────────────────────────────────────
         for h_idx, h in enumerate(horizons):
             log.info(f"\n  ── Horizon t+{h}h ──")
 
+            # Select feature set — horizon-aware for engineered mode
+            if feature_mode == "engineered":
+                variates = get_feature_variates(h)
+            else:
+                variates = SEQUENCE_VARIATES
+
+            n_in = len(variates)
+            log.info(f"  Input variates: {n_in}")
+
+            # Build datasets (per horizon to get correct variate set)
+            train_ds, val_ds = build_fold_datasets(
+                df, fold,
+                seq_len=seq_len,
+                horizons=horizons,
+                variates=variates,
+            )
+
+            pin = device.type == "cuda"
+            train_loader = DataLoader(train_ds, batch_size=tp["batch_size"],
+                                      shuffle=True, num_workers=4, pin_memory=pin)
+            val_loader   = DataLoader(val_ds,   batch_size=tp["batch_size"] * 2,
+                                      shuffle=False, num_workers=4, pin_memory=pin)
+
             model = DLinear(
                 seq_len    = seq_len,
-                pred_len   = 1,                    # single-step output per horizon
-                enc_in     = N_VARIATES,
+                pred_len   = 1,
+                enc_in     = n_in,
                 kernel_size= mp["kernel_size"],
                 individual = mp["individual"],
             )
 
+            tag = f"dlinear_{feature_mode}"
             metrics = train_model_for_fold(
-                model       = model,
-                train_loader= train_loader,
-                val_loader  = val_loader,
-                cfg         = tp,
-                horizon     = h,
-                horizon_idx = h_idx,
-                fold        = fold["fold"],
-                model_name  = "dlinear",
-                save_dir    = save_dir,
-                device      = device,
+                model=model, train_loader=train_loader, val_loader=val_loader,
+                cfg=tp, horizon=h, horizon_idx=h_idx,
+                fold=fold["fold"], model_name=tag,
+                save_dir=save_dir, device=device,
             )
+            metrics["feature_mode"] = feature_mode
             all_metrics.append(metrics)
-
-            # Save running results after each horizon
             pd.DataFrame(all_metrics).to_csv(metrics_path, index=False)
-            log.info(f"  Metrics saved → {metrics_path}")
+            log.info(f"  → {metrics_path}")
 
-    # ── Final summary ─────────────────────────────────────────────────────────
     results_df = pd.DataFrame(all_metrics)
     log.info("\n" + "="*60)
-    log.info("FINAL DLinear RESULTS")
-    log.info("="*60)
+    log.info(f"FINAL DLinear [{feature_mode}] RESULTS")
     summary = results_df.groupby("horizon").agg(
         mae_mean=("mae", "mean"), mae_std=("mae", "std"),
-        rmse_mean=("rmse", "mean"),
-        r2_mean=("r2", "mean"), r2_std=("r2", "std"),
+        r2_mean=("r2", "mean"),
     ).reset_index()
     print(summary.to_string(index=False))
-    log.info(f"\n✅ All results → {metrics_path}")
+    log.info(f"\n✅ Saved → {metrics_path}")
 
 
 if __name__ == "__main__":
